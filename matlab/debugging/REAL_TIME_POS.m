@@ -14,9 +14,12 @@ takeoffReq.Height = 2.0;
 % Call client
 takeoffResp = call(clientTakeoff,takeoffReq);
 pause(3)
+
 %% Read pose
 % Subscribe to pose
-poseSubscriber = rossubscriber('/ual/pose');  
+figure(1)
+callbackPose = @(topic, msg) plot3(msg.Pose.Position.X, msg.Pose.Position.Y, msg.Pose.Position.Z, 'ob')
+poseSubscriber = rossubscriber('/ual/pose', callbackPose);  
 msg = poseSubscriber.receive(1);          
 display(msg.Pose.Position);
 
@@ -44,25 +47,6 @@ Waypoints(:,:,2) = [ 0.0 0.0  0.0  0.0  0.0; 0.0  0.0  0.0  0.0  0.0; 0.0 0.0  0
         J_max            =  1.0*ones(num_axes,num_trajectories)
         J_min            = -1.0*ones(num_axes,num_trajectories)
         A_global         =  0.0*ones(num_axes,1)
-       
-%         P_waypoint_max   =  5.0.*ones(num_axes,num_trajectories);
-%         P_waypoint_min   =  -5.0.*ones(num_axes,num_trajectories); %-5.0
-%         V_waypoint_max   =  0.4.*ones(num_axes,num_trajectories);
-%         V_waypoint_min   = -0.4.*ones(num_axes,num_trajectories);
-%         A_waypoint_max   =  0.3.*ones(num_axes,num_trajectories);
-%         A_waypoint_min   = -0.3.*ones(num_axes,num_trajectories);
-%         PV_waypoint_max  =  0.2.*ones(num_axes,num_trajectories);
-%         PV_waypoint_min  = -0.2.*ones(num_axes,num_trajectories);
-%         PA_waypoint_max  =  0.0.*ones(num_axes,num_trajectories);
-%         PA_waypoint_min  =  0.0.*ones(num_axes,num_trajectories);
-%        
-%         P_waypoints      = reshape(P_waypoint_min+(P_waypoint_max-P_waypoint_min).*rand(num_axes,num_trajectories),num_axes,1,num_trajectories);
-%         V_waypoints      = reshape(V_waypoint_min+(V_waypoint_max-V_waypoint_min).*rand(num_axes,num_trajectories),num_axes,1,num_trajectories);
-%         A_waypoints      = reshape(A_waypoint_min+(A_waypoint_max-A_waypoint_min).*rand(num_axes,num_trajectories),num_axes,1,num_trajectories);
-%         PV_waypoints     = reshape(PV_waypoint_min+(PV_waypoint_max-PV_waypoint_min).*rand(num_axes,num_trajectories),num_axes,1,num_trajectories);
-%         PA_waypoints     = reshape(PA_waypoint_min+(PA_waypoint_max-PA_waypoint_min).*rand(num_axes,num_trajectories),num_axes,1,num_trajectories);
-%         Waypoints        = cat(2,P_waypoints,V_waypoints,A_waypoints,PV_waypoints,PA_waypoints);
-
 %Boolean variables 
 b_comp_global    = false;
 b_sync_V         =  true(num_axes,num_trajectories);
@@ -93,6 +77,7 @@ T_rollout = max(sum(T_waypoints,2));
 [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
 
 %% Dispaly 3D
+figure(1)
 plot3(P(1).signals.values,P(2).signals.values,P(3).signals.values)
 hold on 
 plot3(Xo,Yo,Zo,'o')
@@ -100,7 +85,9 @@ plot3(X1,Y1,Z1,'*') %primo waypoint
 plot3(X2,Y2,Z2,'x') %secondo waypoint
 hold on
 
-% %% SEND POSITION TO SUBSCRIBER  
+
+
+%% SEND POSITION TO SUBSCRIBER  
 % %ual_position 
 % posePublisher = rospublisher('/ual/set_pose','geometry_msgs/PoseStamped');
 % msg = rosmessage(posePublisher);
@@ -138,15 +125,15 @@ b= size(V(1).signals.values);
 n_v_traj=b(1,1);
 
 for i=1:n_v_traj 
-msg.Twist.Linear.X= V(1).signals.values(i,1);
-msg.Twist.Linear.Y = V(2).signals.values(i,1);
-msg.Twist.Linear.Z = V(3).signals.values(i,1);
-% msg.Pose.Orientation.W = 1;    
-send(speedPublisher, msg)
-pause(0.01)
+    msg.Twist.Linear.X= V(1).signals.values(i,1);
+    msg.Twist.Linear.Y = V(2).signals.values(i,1);
+    msg.Twist.Linear.Z = V(3).signals.values(i,1);
+    % msg.Pose.Orientation.W = 1;    
+    send(speedPublisher, msg)
+    pause(0.01)
 end
 
-% % % Evalueate current error
+% % % % % Evalueate current error
 % % e_x= ( P(1).signals.values - S_x);
 % % e_y= ( P(2).signals.values - S_y);
 % % e_z= ( P(1).signals.values - S_z);
@@ -171,5 +158,15 @@ end
 % % plot(t,e_z)
 % % hold on
 % % plot(t,ref_0);
-% % 
-LANDING
+
+
+clientLand = rossvcclient('/ual/land');  
+% Get empty message of the right type
+landReq = rosmessage(clientLand); 
+
+% Set values
+landReq.Blocking = 1;
+
+% Call client
+landResp = call(clientLand,landReq);
+pause(3)
