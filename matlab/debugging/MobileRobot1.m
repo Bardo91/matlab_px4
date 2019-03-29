@@ -44,20 +44,24 @@ classdef MobileRobot1 < handle
         
         function  callbackPose(obj, src, msg) 
             obj.pose = msg.Pose.Position;
-          
+            figure(1)
+           
+            plot3(obj.pose.X, obj.pose.Y, obj.pose.Z,'.')
+            hold on
            [dim nwps ]=size(obj.waypoints);
-
-               
-             
-             for i=1:nwps
-%                  dist entres wp y uav pose
-                 dist_wayps = [obj.pose.X obj.pose.Y obj.pose.Z] - ... 
-                  [ obj.waypoints(1,i) obj.waypoints(2,i) obj.waypoints(3,i) ];
-                 
-                 if norm(dist_wayps) < 0.5
-                   obj.waypoints = [obj.waypoints(:,i+1:nwps)]
+% 
+              for i=1:nwps
+% 
+                  plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
+%                  
+%                  dist_wayps = [obj.pose.X obj.pose.Y obj.pose.Z] - ... 
+%                   [ obj.waypoints(1,i) obj.waypoints(2,i) obj.waypoints(3,i) ];
+%                  
+%                  if norm(dist_wayps) < 0.5
+%                      
+%                    obj.waypoints = [obj.waypoints(:,i+1:nwps)]
                  end
-             end 
+%              end 
         end
         
         function  callbackSpeed(obj, src, msg) 
@@ -108,12 +112,12 @@ classdef MobileRobot1 < handle
             disp(['num_axes = ',num2str(num_axes)]);
             disp(['num_trajectories = ',num2str(num_trajectories)]);
 
-            ts_rollout = 0.05;
+            ts_rollout = 0.01;
             T_rollout = max(sum(T_waypoints,2));
             [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
 
             obj.trajectory_pos = P;
-            obj.trajectory_speed = V;
+            obj.trajectory_speed = V;  
             b= size(V(1).signals.values);
            
             obj.N_traj=b(1,1);
@@ -121,7 +125,10 @@ classdef MobileRobot1 < handle
            
         end
         
-        function moveToWaypoint(obj, waypoints)
+        
+        
+        
+          function moveToWaypoint_debug(obj, waypoints)
             obj.waypoints = waypoints;
             
             %Plan trajectory 
@@ -129,18 +136,57 @@ classdef MobileRobot1 < handle
             computeTrajectory(obj);
             
             
+           msg = rosmessage(obj.speedPublisher);
+          
+            V = obj.trajectory_speed;
+            P = obj.trajectory_pos;
+            plot3(obj.trajectory_pos(1).signals.values, ...
+                    obj.trajectory_pos(2).signals.values,...
+                    obj.trajectory_pos(3).signals.values);
             
+            
+            [dim nwps ]=size(obj.waypoints);
+            
+%             while nwps > 0
+                
+               for i=1: obj.N_traj
+                    tic
+                   
+                    msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(i,1);
+                    msg.Twist.Linear.Y = obj.trajectory_speed(2).signals.values(i,1);
+                    msg.Twist.Linear.Z = obj.trajectory_speed(3).signals.values(i,1);
+                    
+                    send(obj.speedPublisher, msg)
+                    int=toc
+                    if int< 0.01
+                        pause(0.01-int)
+                    end
+                          
+               end
+%             end 
+          end 
+                  
+          
+          
+                    
+         function moveToWaypoint(obj, waypoints)
+            obj.waypoints = waypoints;
+            
+            %Plan trajectory 
+            
+            computeTrajectory(obj);
+        
             msg = rosmessage(obj.speedPublisher);
           
             %hay estas informaciones in computeTrajectory tambien.
             V = obj.trajectory_speed;
             P = obj.trajectory_pos;
-            b= size(V(1).signals.values);
+%             b= size(V(1).signals.values);
             
             
             [dim nwps ]=size(obj.waypoints);
             
-            figure(1);
+            
             hold on;
             while nwps > 0
                for i=1: obj.N_traj
@@ -153,7 +199,8 @@ classdef MobileRobot1 < handle
                             [obj.trajectory_pos(1).signals.values(i,1) obj.trajectory_pos(2).signals.values(i,1) obj.trajectory_pos(3).signals.values(i,1)];
 
                      
-                    plot(obj.counter_step, norm(error), 'bo');
+%                     plot(obj.counter_step, norm(error), 'bo');
+                    plot3(obj.trajectory_pos(1).signals.values(i,1), obj.trajectory_pos(2).signals.values(i,1), obj.trajectory_pos(3).signals.values(i,1),'x');
                     obj.counter_step = obj.counter_step+1;
                     if norm(error) > 0.5
                 
@@ -163,14 +210,16 @@ classdef MobileRobot1 < handle
                      break 
 
                     end
+%                     plot3(obj.trajectory_pos(1).signals.values(i,1), obj.trajectory_pos(2).signals.values(i,1), obj.trajectory_pos(3).signals.values(i,1),'x');
                     send(obj.speedPublisher, msg)
                     incT = toc
-                    if incT < 0.05
-                        pause(0.05-incT)
+                    if incT < 0.02
+                        pause(0.02-incT)
                     end
+              
                 end
             end 
             
         end
     end
-end
+    end
