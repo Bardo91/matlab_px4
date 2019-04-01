@@ -50,27 +50,26 @@ classdef MobileRobot1 < handle
             hold on
            [dim nwps ]=size(obj.waypoints);
 % 
-              for i=1:nwps
-% 
-                  plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
-%                  
-%                  dist_wayps = [obj.pose.X obj.pose.Y obj.pose.Z] - ... 
-%                   [ obj.waypoints(1,i) obj.waypoints(2,i) obj.waypoints(3,i) ];
-%                  
-%                  if norm(dist_wayps) < 0.5
-%                      
-%                    obj.waypoints = [obj.waypoints(:,i+1:nwps)]
+             for i=1:nwps
+                  %plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
+                 
+                 dist_wayps = [obj.pose.X obj.pose.Y obj.pose.Z] - ... 
+                  [ obj.waypoints(1,i) obj.waypoints(2,i) obj.waypoints(3,i) ];
+                 
+                 if norm(dist_wayps) < 0.5
+                   obj.waypoints = [obj.waypoints(:,i+1:nwps)]
                  end
-%              end 
+             end 
         end
         
         function  callbackSpeed(obj, src, msg) 
             obj.speed = msg.Twist.Linear;
         end
         
+        
         function computeTrajectory(obj)
             num_axes         = 3;
-            [dim nwps ]=size(obj.waypoints)
+            [dim nwps ]=size(obj.waypoints);
             num_trajectories = nwps; %number of waypoint
             State_start      = [obj.pose.X obj.speed.X 0;... 
                                 obj.pose.Y obj.speed.Y 0;...
@@ -147,9 +146,9 @@ classdef MobileRobot1 < handle
             
             [dim nwps ]=size(obj.waypoints);
             
-%             while nwps > 0
-                
-               for i=1: obj.N_traj
+            i=1;
+           
+            while i < obj.N_traj
                     tic
                    
                     msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(i,1);
@@ -157,13 +156,13 @@ classdef MobileRobot1 < handle
                     msg.Twist.Linear.Z = obj.trajectory_speed(3).signals.values(i,1);
                     
                     send(obj.speedPublisher, msg)
-                    int=toc
-                    if int< 0.01
-                        pause(0.01-int)
-                    end
-                          
-               end
-%             end 
+                    int=toc;
+%                     if int< 0.2
+                        pause(10^-9)
+%                     end
+                i=i+1;
+             end 
+             
           end 
                   
           
@@ -188,7 +187,9 @@ classdef MobileRobot1 < handle
             
             
             hold on;
-            while nwps > 0
+            hasFinishedTraj  = false;
+           
+            while nwps > 0 && ~hasFinishedTraj
                for i=1: obj.N_traj
                    tic
                     msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(i,1);
@@ -216,8 +217,11 @@ classdef MobileRobot1 < handle
                     if incT < 0.02
                         pause(0.02-incT)
                     end
-              
-                end
+                    
+                    if hasFinishedTraj == obj.N_traj
+                        hasFinishedTraj = true;
+                    end
+               end
             end 
             
         end
