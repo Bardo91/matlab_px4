@@ -51,7 +51,7 @@ classdef MobileRobot1 < handle
            [dim nwps ]=size(obj.waypoints);
 % 
              for i=1:nwps
-                  %plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
+                  plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
                  
                  dist_wayps = [obj.pose.X obj.pose.Y obj.pose.Z] - ... 
                   [ obj.waypoints(1,i) obj.waypoints(2,i) obj.waypoints(3,i) ];
@@ -71,9 +71,9 @@ classdef MobileRobot1 < handle
             num_axes         = 3;
             [dim nwps ]=size(obj.waypoints);
             num_trajectories = nwps; %number of waypoint
-            State_start      = [obj.pose.X obj.speed.X 0;... 
-                                obj.pose.Y obj.speed.Y 0;...
-                                obj.pose.Z obj.speed.Z 0];
+            State_start      = [obj.pose.X 0 0;... 
+                                obj.pose.Y 0 0;...
+                                obj.pose.Z 0 0];
             Waypoints = [];
             
             for i=1:nwps
@@ -111,7 +111,7 @@ classdef MobileRobot1 < handle
             disp(['num_axes = ',num2str(num_axes)]);
             disp(['num_trajectories = ',num2str(num_trajectories)]);
 
-            ts_rollout = 0.01;
+            ts_rollout = 0.1; %0.01
             T_rollout = max(sum(T_waypoints,2));
             [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
 
@@ -180,7 +180,9 @@ classdef MobileRobot1 < handle
             %hay estas informaciones in computeTrajectory tambien.
             V = obj.trajectory_speed;
             P = obj.trajectory_pos;
-%             b= size(V(1).signals.values);
+            %initial trajectory
+           
+            
             
             
             [dim nwps ]=size(obj.waypoints);
@@ -192,6 +194,11 @@ classdef MobileRobot1 < handle
             while nwps > 0 && ~hasFinishedTraj
                for i=1: obj.N_traj
                    tic
+                   % compleate replanned trajectory
+                    plot3(obj.trajectory_pos(1).signals.values, ...
+                    obj.trajectory_pos(2).signals.values,...
+                    obj.trajectory_pos(3).signals.values);
+                
                     msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(i,1);
                     msg.Twist.Linear.Y = obj.trajectory_speed(2).signals.values(i,1);
                     msg.Twist.Linear.Z = obj.trajectory_speed(3).signals.values(i,1);
@@ -200,10 +207,10 @@ classdef MobileRobot1 < handle
                             [obj.trajectory_pos(1).signals.values(i,1) obj.trajectory_pos(2).signals.values(i,1) obj.trajectory_pos(3).signals.values(i,1)];
 
                      
-%                     plot(obj.counter_step, norm(error), 'bo');
-                    plot3(obj.trajectory_pos(1).signals.values(i,1), obj.trajectory_pos(2).signals.values(i,1), obj.trajectory_pos(3).signals.values(i,1),'x');
+%                   plot(obj.counter_step, norm(error), 'bo');
+%                   plot3(obj.trajectory_pos(1).signals.values(i,1), obj.trajectory_pos(2).signals.values(i,1), obj.trajectory_pos(3).signals.values(i,1),'°');
                     obj.counter_step = obj.counter_step+1;
-                    if norm(error) > 0.5
+                    if norm(error) > 0.6
                 
                        computeTrajectory(obj)
                        
@@ -211,12 +218,12 @@ classdef MobileRobot1 < handle
                      break 
 
                     end
-%                     plot3(obj.trajectory_pos(1).signals.values(i,1), obj.trajectory_pos(2).signals.values(i,1), obj.trajectory_pos(3).signals.values(i,1),'x');
+%                    
                     send(obj.speedPublisher, msg)
                     incT = toc
-                    if incT < 0.02
-                        pause(0.02-incT)
-                    end
+%                     if incT < 0.01
+                        pause(0.0000001)
+%                     end
                     
                     if hasFinishedTraj == obj.N_traj
                         hasFinishedTraj = true;
