@@ -43,25 +43,28 @@ clearvars;
 index_example = 1;
 
 switch index_example
+    % n is the number of the consecutive waypoints (= 2??)
     case 1
-        num_axes         = 1;
-        num_trajectories = 2;
-        State_start      = [ 0.0  0.0  0.0];
-        Waypoints(:,:,1) = [ 2.0  0.0  0.0  0.0  0.0];
-        Waypoints(:,:,2) = [ 0.0  0.0  0.0  0.0  0.0];
-        V_max            = [ 1.0  1.0];
+        %Example 1 generates a predefined trajectory with two consecutive waypoints for a single axis.
+        num_axes         = 1;  % m
+        num_trajectories = 2;  % n 
+        State_start      = [ 0.0  0.0  0.0];  % m x 3 -> position, velocity and acceleration per axis.
+        Waypoints(:,:,1) = [ 2.0  0.0  0.0  0.0  0.0];  % (mx5xn) Each waypoint is 5-dimensional, consisting of position, velocity, acceleration, velocity prediction, and acceleration prediction (currently not functional) per axis.
+        Waypoints(:,:,2) = [ 0.0  0.0  0.0  0.0  0.0];  
+        V_max            = [ 1.0  1.0];  % mxn 
         V_min            = [-1.0 -1.0];
         A_max            = [ 0.5  0.5];
         A_min            = [-0.5 -0.5];
         J_max            = [ 1.0  1.0];
         J_min            = [-1.0 -1.0];
-        A_global         =   0.0;
+        A_global         =   0.0; % mx1 Global acceleration. This can be for example constant sidewind when controlling an MAV.
     case 2
+        %Example 2 generates a predefined trajectory with two consecutive waypoints for a single axis with changing bounds and infeasible start state for the second waypoint.
         num_axes         = 1;
         num_trajectories = 2;
         State_start      = [ 0.0  0.0  0.0];
         Waypoints(:,:,1) = [ 3.0  0.5  0.0  0.0  0.0];
-        Waypoints(:,:,2) = [ 4.0  0.0  0.0  0.0  0.0];
+        Waypoints(:,:,2) = [ 4.0  0.0  0.0  0.0  0.0]; %infeasible state for a single waypoint?
         V_max            = [ 1.0  0.2];
         V_min            = [-1.0 -1.0];
         A_max            = [ 0.5  0.5];
@@ -70,6 +73,7 @@ switch index_example
         J_min            = [-1.0 -1.0];
         A_global         =   0.0;
      case 3
+         %Example 3 generates a predefined second order trajectory with two consecutive waypoints for a single axis.
         num_axes         = 1;
         num_trajectories = 2;
         State_start      = [ 0.0  0.0  0.0];
@@ -79,21 +83,22 @@ switch index_example
         V_min            = [-1.0 -1.0];
         A_max            = [ 0.5  0.5];
         A_min            = [-0.5 -0.5];
-        J_max            = [ Inf  Inf];
+        J_max            = [ Inf  Inf];  %secondi order trajectory??
         J_min            = [-Inf -Inf];
         A_global         =   0.0;
     case 4
+        %Example 4 generates a predefined synchronized trajectory with two consecutive waypoints for two axes.
         num_axes         = 2;
         num_trajectories = 2;
-        State_start      = [ 0.0  0.0  0.0;
+        State_start      = [ 0.0  0.0  0.0;  % 2x3
                              0.0  0.0  0.0];
         Waypoints(:,:,1) = [ 1.0  0.0  0.0  0.0  0.0;
                              3.0  0.0  0.0  0.0  0.0];
         Waypoints(:,:,2) = [ 0.0  0.0  0.0  0.0  0.0;
                              0.0  0.0  0.0  0.0  0.0];
-        V_max            = [ 1.0  1.0;
+        V_max            = [ 1.0  1.0;  %mxn -> 2x2 (per ogni waypoint devo definire Vx e Vy
                              1.0  1.0];
-        V_min            = [-1.0 -1.0;
+        V_min            = [-1.0 -1.0;  
                             -1.0 -1.0];
         A_max            = [ 0.5  0.5;
                              0.5  0.5];
@@ -106,9 +111,10 @@ switch index_example
         A_global         = [ 0.0;
                              0.0];
     case 5
+        %Example generates a random trajectory with up to five consecutive waypoints for up to ten axes.
         rng(6);
         num_axes         = randi(10);
-        num_trajectories = randi(5);
+        num_trajectories = randi(5); %up to five consecutive waypoints
 
         State_start      =  0.0*rand(num_axes,3);
         
@@ -141,8 +147,8 @@ switch index_example
     otherwise
         disp('please select a valid example!');
 end
-
-b_comp_global    = false;
+%boolean variables
+b_comp_global    = false; %Should global acceleration be compensated?
 b_sync_V         =  true(num_axes,num_trajectories);
 b_sync_A         =  true(num_axes,num_trajectories);
 b_sync_J         = false(num_axes,num_trajectories);
@@ -167,7 +173,7 @@ disp(['num_axes = ',num2str(num_axes)]);
 disp(['num_trajectories = ',num2str(num_trajectories)]);
 
 ts_rollout = 0.01;
-T_rollout = max(sum(T_waypoints,2));
+T_rollout = max(sum(T_waypoints,2)); %T_way..->This variable gives the incremental times between waypoints for each axis.
 [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
 
 show_trajectory_1D;

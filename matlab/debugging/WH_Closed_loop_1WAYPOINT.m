@@ -32,11 +32,11 @@ State_start      = [Xo 0 0; Yo 0 0; Zo 0 0];
 X1= 1.0;
 Y1= 3.0;
 Z1= 3.0;
-X2= 20.0;
-Y2= 10.0;
-Z2= 15.0;
-Waypoints(:,:,1) = [ 20.0  0.0  0.0  0.0  0.0; 10.0  0.0  0.0  0.0  0.0; 15.0 0.0 0.0 0.0 0.0];
-% Waypoints(:,:,2) = [ 0.0 0.0  0.0  0.0  0.0; 0.0  0.0  0.0  0.0  0.0; 0.0 0.0  0.0  0.0  0.0];
+X2= 3.0;
+Y2= 3.0;
+Z2= 3.0;
+Waypoints(:,:,1) = [ 10.0  0.0  0.0  0.0  0.0; 8.0  0.0  0.0  0.0  0.0; 12.0 0.0 0.0 0.0 0.0];
+% Waypoints(:,:,2) = [ 3.0 0.0  0.0  0.0  0.0; 3.0  0.0  0.0  0.0  0.0; 3.0 0.0  0.0  0.0  0.0];
         V_max            =  1.0*ones(num_axes,num_trajectories)
         V_min            = -1.0*ones(num_axes,num_trajectories)
         A_max            =  0.5*ones(num_axes,num_trajectories)
@@ -74,7 +74,7 @@ disp(['num_trajectories = ',num2str(num_trajectories)]);
 ts_rollout = 0.2; %%CAMBIATA  %0.01
 T_rollout = max(sum(T_waypoints,2));
 [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
-% 
+
 % % Dispaly 3D
 % plot3(P(1).signals.values,P(2).signals.values,P(3).signals.values)
 % hold on 
@@ -89,89 +89,119 @@ speedPublisher = rospublisher('/ual/set_velocity','geometry_msgs/TwistStamped');
 msg_v = rosmessage(speedPublisher);
 %calcolo n_p_trajectory, cioè il numero dei punti in cui sto discretizzando
 % la traiettoria
-b= size(V(1).signals.values);
+b= size(P(1).signals.values);
 n_v_traj=b(1,1);
 
 j=1;
-t=1;
+% k=1;
+
 
 
 S_x=zeros(j,1);
 S_y=zeros(j,1);
 S_z=zeros(j,1);
 
-E_x= zeros(n_v_traj,1);
-E_y= zeros(n_v_traj,1);
-E_z= zeros(n_v_traj,1);
+E_x= zeros(j,1); 
+E_y= zeros(j,1);
+E_z= zeros(j,1);
 
 P_traj_x=zeros(j,1);
 P_traj_y=zeros(j,1);
 P_traj_z=zeros(j,1);
 
 
-for i=1:n_v_traj 
-%     profile on 
+
+i=1;
+m=200;
+
+
+
+while i < n_v_traj 
+   
     tic
     msg_v.Twist.Linear.X= V(1).signals.values(i,1); 
     msg_v.Twist.Linear.Y = V(2).signals.values(i,1);
     msg_v.Twist.Linear.Z = V(3).signals.values(i,1);   
     send(speedPublisher, msg_v)
-    % tsim1=toc;
+    
+     %Store_complete trajectory
+    P_traj_x(j,1)=P(1).signals.values(i,1);
+    P_traj_y(j,1)=P(2).signals.values(i,1);
+    P_traj_z(j,1)=P(3).signals.values(i,1); 
+    
+    
+    %Subscriber position
     msg = poseSubscriber.receive(1);
     S_x(j,1) = msg.Pose.Position.X;
     S_y(j,1) = msg.Pose.Position.Y;
     S_z(j,1) = msg.Pose.Position.Z;
     
-    %Store_complete trajectory
-    P_traj_x(j,1)=P(1).signals.values(i,1);
-    P_traj_y(j,1)=P(2).signals.values(i,1);
-    P_traj_z(j,1)=P(3).signals.values(i,1);
-
-    %calcolo errore
-    E_x= abs(P(1).signals.values(i,1)-S_x(j,1));
-    E_y= abs(P(2).signals.values(i,1)-S_y(j,1));
-    E_z= abs(P(3).signals.values(i,1)-S_z(j,1));
+    
+   %calcolo errore
+    E_x= abs(P_traj_x(j,1)-S_x(j,1));
+    E_y= abs(P_traj_y(j,1)-S_y(j,1));
+    E_z= abs(P_traj_z(j,1)-S_z(j,1));
 
     tsim=toc; 
-
-%    if (E_x+E_y+E_z) < 0.5  
+     
+      
+    if (E_x+E_y+E_z) < 0.5  
       incT = 0.2 -tsim;
-      if incT > 0.0
-         pause(incT)
-      % pause(incT + tsim1 + 0.0064)
-      end
-       
-%    else 
-%        State_start_1 = [S_x(j,1) 0 0; ... 
-%                         S_y(j,1) 0 0; ...
-%                         S_z(j,1) 0 0];
-%                   
-%        display(strcat("replaning in iteration: ",string(i)))
-%        [J_setp_struct,solution_out,T_waypoints,~] = opt_control_mex(State_start_1,Waypoints,V_max,V_min,A_max,A_min,J_max,J_min,A_global,b_comp_global,b_sync_V,b_sync_A,b_sync_J,b_sync_W,false(num_axes,num_trajectories),b_rotate,b_best_solution,b_hard_vel_limit,b_catch_up,ones(num_axes,8,1),ones(num_axes,1),zeros(num_axes,1),zeros(num_axes,1),solution_in);                                                              
-%        [P,V,A,J] = rollout( State_start_1(:,1),...
-%                             State_start_1(:,2),...
-%                             State_start_1(:,3)+A_global*b_comp_global,...
-%                             J_setp_struct,...
-%                             T_rollout,...
-%                             ts_rollout);
-%                         
-%        % sovrascrivo il valori di n_traj 
-%         c= size(P(1).signals.values);
-%         n_v_traj=c(1,1);
-%         i=1;
-%         tsim1=toc; 
-%         incT_1 = 0.2 -tsim1; %se aumento il dt ho un errore maggiore all'inizio
-%         if incT_1 > 0.0
-%             pause(incT_1)
+            if incT > 0.0
+            pause(incT)
+            end
+     
+    else 
+%         if i> m 
+%             break 
 %         end
-% % %         plot3(P(1).signals.values(i,1),P(2).signals.values(i,1),P(3).signals.values(i,1))
-% %         profile viewer
-%    end
-j=j+1;
-t=t+1;
-
+%         if [abs(S_x(j,1)-Waypoints(1,1)); abs(S_y(j,1)-Waypoints(2,1)); abs(S_z(j,1)-Waypoints(3,1))] < [ 3; 3 ; 3]
+%            break
+%        end 
+%         
+       State_start = [S_x(j,1) V(1).signals.values(i,1) 0.0; ... 
+                      S_y(j,1) V(2).signals.values(i,1) 0.0; ...
+                      S_z(j,1) V(3).signals.values(i,1) 0.0];
+                  
+       display(strcat("replaning in iteration: ",string(i)))
+       [J_setp_struct,solution_out,T_waypoints,~] = opt_control_mex(State_start,Waypoints,V_max,V_min,A_max,A_min,J_max,J_min,A_global,b_comp_global,b_sync_V,b_sync_A,b_sync_J,b_sync_W,false(num_axes,num_trajectories),b_rotate,b_best_solution,b_hard_vel_limit,b_catch_up,ones(num_axes,8,1),ones(num_axes,1),zeros(num_axes,1),zeros(num_axes,1),solution_in);                                                              
+       [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
+                        
+       %sovrascrivo i valori di i e n_v_traj
+           c= size(P(1).signals.values);
+           n_v_traj=c(1,1);
+           i=0;  %prova con i=1;
+          
+           
+    end
+       
+   i=i+1;
+   j=j+1;
+   
 end
-% 
+
+% n=size(S_x);
+% m=n(1,1)
+% State_start=[S_x(m,1) 0.0  0.0; S_y(m,1) 0.0  0.0; S_z(m,1) 0.0  0.0  ];
+%   
+% [J_setp_struct,solution_out,T_waypoints,~] = opt_control_mex(State_start,Waypoints,V_max,V_min,A_max,A_min,J_max,J_min,A_global,b_comp_global,b_sync_V,b_sync_A,b_sync_J,b_sync_W,false(num_axes,num_trajectories),b_rotate,b_best_solution,b_hard_vel_limit,b_catch_up,ones(num_axes,8,1),ones(num_axes,1),zeros(num_axes,1),zeros(num_axes,1),solution_in);                                                              
+% [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
+% c= size(P(1).signals.values);
+%              n_v_traj=c(1,1);
+%            
+% while k <= n_v_traj 
+%    
+%     
+%     msg_v.Twist.Linear.X= V(1).signals.values(k,1); 
+%     msg_v.Twist.Linear.Y = V(2).signals.values(k,1);
+%     msg_v.Twist.Linear.Z = V(3).signals.values(k,1);   
+%     send(speedPublisher, msg_v)
+%     
+%      
+%    k=k+1;
+%  
+% end
+
  % Dispaly 3D
 plot3(P_traj_x, P_traj_y, P_traj_z,'b')
 hold on 
@@ -183,8 +213,11 @@ hold on
 plot3(S_x,S_y,S_z,'r');
 grid
 legend('trajectory','initial pose','waypoint','real pose')
+hold on 
+plot3(P(1).signals.values,P(2).signals.values,P(3).signals.values)
+ 
 
- figure
+figure
 subplot(3,1,1)
 plot(P_traj_x, 'b')
 hold on
