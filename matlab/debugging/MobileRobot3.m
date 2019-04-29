@@ -32,9 +32,9 @@ classdef MobileRobot3 < handle
             obj.poseReadSubscriber = rossubscriber('/ual/pose', @obj.callbackReadPose);  
             obj.poseWpSubscriber = rossubscriber('/ual/pose', @obj.callbackWpPose);  
             obj.poseReplanSubscriber = rossubscriber('/ual/pose', @obj.callbackReplanPose);  
-            obj.speedSubscriber = rossubscriber('/ual/velocity', @obj.callbackSpeed);  
+            %obj.speedSubscriber = rossubscriber('/ual/velocity', @obj.callbackSpeed);  
             obj.speedPublisher = rospublisher('/ual/set_velocity','geometry_msgs/TwistStamped');
-            obj.speed_msg = rosmessage(obj.speedPublisher);clear
+            obj.speed_msg = rosmessage(obj.speedPublisher);
         end
         
         function takeoffResp = takeoff(obj, altitude)
@@ -197,7 +197,7 @@ classdef MobileRobot3 < handle
         
         function moveToWaypoint(obj)  
            
-           display('-----------------------------------------------------------------------------------------')
+%            display('-----------------------------------------------------------------------------------------')
            obj.speed_msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(obj.speed_index,1);
            obj.speed_msg.Twist.Linear.Y = obj.trajectory_speed(2).signals.values(obj.speed_index,1);
            obj.speed_msg.Twist.Linear.Z = obj.trajectory_speed(3).signals.values(obj.speed_index,1);
