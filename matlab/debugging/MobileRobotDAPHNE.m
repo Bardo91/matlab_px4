@@ -165,14 +165,14 @@ classdef MobileRobotDAPHNE < handle
                                            [obj.trajectory_pos(1).signals.values(obj.speed_index,1) obj.trajectory_pos(2).signals.values(obj.speed_index,1) obj.trajectory_pos(3).signals.values(obj.speed_index,1)];
 
                  
-                 if norm(obj.error(obj.speed_index,:)) > 1.0 && obj.nwps > 0%&& obj.dist_waypoint<0.5    
+                 if norm(obj.error(obj.speed_index,:)) > 1.0 % && obj.nwps > 0 %&& obj.dist_waypoint<0.5  
                           
                       computeTrajectory(obj) 
                          
-                    %  disp('errore maggiore di 0.6')
+                    %  disp('errore maggiore di 1.0')
                          
                       obj.speed_index = 1;
-                         
+                              
                 end
              end
           end
@@ -194,7 +194,7 @@ classdef MobileRobotDAPHNE < handle
                   obj.trajectory_pos(3).signals.values);
             hold on 
 
-           while obj.speed_index < obj.N_traj 
+           while obj.speed_index < obj.N_traj && obj.nwps>0
                tic   
                obj.speed_msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(obj.speed_index,1);
                obj.speed_msg.Twist.Linear.Y = obj.trajectory_speed(2).signals.values(obj.speed_index,1);
