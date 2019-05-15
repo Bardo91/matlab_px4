@@ -1,8 +1,7 @@
 %% COMMAND LINE
 
-%PROVA MOBILEROBOT4
 % nota: a meno che non sei nel caso 4, descommenta le righe 4-5;
-robot=MobileRobot4(); %robot=MobileRobot4();
+robot=MobileRobotDAPHNE(); %robot=MobileRobot4();
 robot.takeoff(1)
 
 %indice
