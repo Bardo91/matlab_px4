@@ -1,6 +1,5 @@
 %% COMMAND LINE
 
-% nota: a meno che non sei nel caso 4, descommenta le righe 4-5;
 robot=MobileRobotDAPHNE(); %robot=MobileRobot4();
 robot.takeoff(1)
 
@@ -11,8 +10,7 @@ switch index_caso
 %%-------------------------------------------------------------------------
     case 1
 % PROVA DI VOLO -->  2 wayponit trajectory
-%nota= fallo partire con ROS reinizializzato
-%nota= volori di utilizzo:  errore > 1.2 y dist_wp < 0.5
+
 waypoints=[3 10; 3 15; 1 15];                     %[x1 x2  ;y1  y2  ;z1 z2 ]
 waypoints_vel=[0.5 0; 0.5 0; 0.5 0];              %[u1 u2  ;v1  v2  ;w1 w2 ]  
 waypoints_ac=[0.1 0.0; 0.1 0.0; 0.1 0.0];
