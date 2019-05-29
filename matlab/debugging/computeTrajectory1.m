@@ -1,11 +1,13 @@
- function computeTrajectory1(waypoints,waypoints_vel,waypoints_ac)
+ function computeTrajectory1(waypoints,waypoints_vel,waypoints_ac,state_start)
 num_axes         = 3;
             [~ , nwps ]=size(waypoints);
             num_trajectories = nwps; %number of waypoint
 
-            State_start      = [0 0 0; 
-                                0 0 0;
-                                1 0 0];
+             State_start      = [state_start(1,1) 0 0; 
+                                 state_start(2,1) 0 0;
+                                 state_start(3,1) 0 0];
+
+
                             
                 Waypoints=[];
                 figure(1)

@@ -40,7 +40,7 @@
 
 clearvars;
 %% ----------   Variables    ----------
-index_example = 1;
+index_example = 4;
 
 switch index_example
     % n is the number of the consecutive waypoints (= 2??)
@@ -176,7 +176,7 @@ ts_rollout = 0.01;
 T_rollout = max(sum(T_waypoints,2)); %T_way..->This variable gives the incremental times between waypoints for each axis.
 [P,V,A,J] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
 
-show_trajectory_1D;
+% show_trajectory_1D;
 
 
 

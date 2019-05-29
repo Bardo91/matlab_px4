@@ -3,9 +3,9 @@
 % Waypoints
 % n_wps=3;
 
-load('wps_1.mat')
-load('wps_3.mat')
-load('wps_2.mat')
+load('wp1.mat')
+load('wp2.mat')
+load('wp3.mat')
 % Real Pose 
 load('real_x.mat')
 load('real_y.mat')
@@ -86,7 +86,7 @@ for i=1:n_wps
     plot3(x,y,z,'r')
     grid on
     hold on 
-    for j=k:200:n_traj  %prima estaba i
+    for j=k:50:n_traj  %prima estaba i
         %Calcola proiezione ortogonale
         %Calcola piano passante per P(j) y ortogonale alla direzione i_esima
         syms x_p y_p z_p
