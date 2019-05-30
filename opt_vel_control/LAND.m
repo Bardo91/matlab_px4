@@ -10,3 +10,5 @@ landReq.Blocking = 1;
 
 % Call client
 landResp = call(clientLand, landReq);
+
+rosshutdown

@@ -35,14 +35,14 @@ classdef MobileRobotD4PHNE < handle
         wp_n_imo=0;
         replan_index=0;
         counter_step=1;
-        speed_index=1;s
+        speed_index=1;
         error=[];
-        plotting=0;
+        plotting=1;
         
         magic=0.040; %0.020
         ts_rolloutMagic = 0.08;%0.04
-        error_delete_waypoint = 0.4;
-        max_error = 1.0;
+        error_delete_waypoint = 0.5; %0.4
+        max_error = 0.8;  %1.0
         
 %         axes = figure();
         
@@ -70,7 +70,7 @@ classdef MobileRobotD4PHNE < handle
             takeoffReq.Height = altitude;
             takeoffResp = call(clientTakeoff,takeoffReq);
             pause(3)
-            obj.flying = true;
+            
             disp('take off end')
         end
         
@@ -89,6 +89,7 @@ classdef MobileRobotD4PHNE < handle
                 %subplot(2,1,1)
                 plot3(obj.pose.X, obj.pose.Y, obj.pose.Z,'.')
                 hold on
+                grid on
             end
         end
         
@@ -122,15 +123,18 @@ classdef MobileRobotD4PHNE < handle
             if size(obj.currentWaypoint,2) > 0
                 dist_wayps = [pose.X pose.Y pose.Z] - ...
                              [ obj.currentWaypoint(1) obj.currentWaypoint(2) obj.currentWaypoint(3) ];
-                if norm(dist_wayps) < obj.error_delete_waypoint  %0.6
+                if norm(dist_wayps) < obj.error_delete_waypoint && obj.nwps>0  %0.6
                     obj.wp_n_imo=obj.wp_n_imo+1;
                     disp(strcat('------------------->Deleted waypoint number=', num2str(obj.wp_n_imo)))
                     currentWaypointNumber = size(obj.waypoints(1,:),2);
                     obj.waypoints = obj.waypoints(:,2:currentWaypointNumber);
                     obj.waypoints_vel= obj.waypoints_vel(:,2:currentWaypointNumber);
                     obj.waypoints_ac= obj.waypoints_ac(:,2:currentWaypointNumber);
-                    obj.currentWaypoint = obj.waypoints(:,1);
-                    computeTrajectory(obj);
+                    if currentWaypointNumber > 1 
+                        obj.currentWaypoint = obj.waypoints(:,1);
+                        computeTrajectory(obj);
+                    end
+                   
                 end
             end
         end
@@ -178,25 +182,19 @@ classdef MobileRobotD4PHNE < handle
             b_catch_up       =  true(num_axes,num_trajectories); %true
             
             % %% ----------   Calculate    ----------
-            solution_in  = -1*ones(num_axes,2,num_trajectories,'int8');
-            
+            solution_in      = -1 * ones(num_axes,2,num_trajectories,'int16');
+            ts_rollout = obj.ts_rolloutMagic;
+            %             T_rollout = max(sum(T_waypoints,2));
             tic;
-            [J_setp_struct,~,T_waypoints,~] = opt_control_mex(State_start,Waypoints,V_max,V_min,A_max,A_min,J_max,J_min,A_global,b_comp_global,b_sync_V,b_sync_A,b_sync_J,b_sync_W,false(num_axes,num_trajectories),b_rotate,b_best_solution,b_hard_vel_limit,b_catch_up,ones(num_axes,8,1),ones(num_axes,1),zeros(num_axes,1),zeros(num_axes,1),solution_in);
+            [~,~,~,P,V,~,~,~] = opt_control_lib_mex(State_start,Waypoints,V_max,V_min,A_max,A_min,J_max,J_min,A_global,b_comp_global,b_sync_V,b_sync_A,b_sync_J,b_sync_W,b_rotate,b_best_solution,b_hard_vel_limit,b_catch_up,solution_in,ts_rollout);
             toc;
             
-            % %% ----------     Output     ----------
-            %             disp(['num_axes = ',num2str(num_axes)]);
-            %             disp(['num_trajectories = ',num2str(num_trajectories)]);
-            
-            ts_rollout = obj.ts_rolloutMagic; %0.06
-            T_rollout = max(sum(T_waypoints,2));
-            [P,V,~,~] = rollout(State_start(:,1),State_start(:,2),State_start(:,3)+A_global*b_comp_global,J_setp_struct,T_rollout,ts_rollout);
-            
+           
             obj.trajectory_pos = P;
             obj.trajectory_speed = V;
-            b= size(V(1).signals.values);
+            b= size(obj.trajectory_pos);
             
-            obj.N_traj=b(1,1);
+            obj.N_traj=b(1,2);
         end
         
         function  callbackReplanPose(obj,~, msg)
@@ -206,7 +204,7 @@ classdef MobileRobotD4PHNE < handle
                 
                 %calcola l'errore
                 obj.error(obj.speed_index,:) = [pose_r.X pose_r.Y pose_r.Z] - ...
-                    [obj.trajectory_pos(1).signals.values(obj.speed_index,1) obj.trajectory_pos(2).signals.values(obj.speed_index,1) obj.trajectory_pos(3).signals.values(obj.speed_index,1)];
+                    [obj.trajectory_pos(1,obj.speed_index) obj.trajectory_pos(2,obj.speed_index) obj.trajectory_pos(3,obj.speed_index)];
                 
                 
                 if norm(obj.error(obj.speed_index,:)) > obj.max_error % && obj.nwps > 0 %&& obj.dist_waypoint<0.5
@@ -242,23 +240,24 @@ classdef MobileRobotD4PHNE < handle
             
             %           COMPUTE TRAJECTORY
             computeTrajectory(obj);
+            obj.flying = true;
             
             % publish first computed trajectory <--------
             sendTrajectory(obj);
             
             %           PLOT OF THE FIRST TRAJECTORY => VERIFICA FUNZIONAMENTO
             if(obj.plotting)
-                      plot3(obj.trajectory_pos(1).signals.values,...
-                             obj.trajectory_pos(2).signals.values,...
-                             obj.trajectory_pos(3).signals.values);
+                      plot3(obj.trajectory_pos(1,:),...
+                             obj.trajectory_pos(2,:),...
+                             obj.trajectory_pos(3,:));
                        hold on
             end
             
             while obj.speed_index < obj.N_traj && obj.nwps>0
                 tic
-                obj.speed_msg.Twist.Linear.X= obj.trajectory_speed(1).signals.values(obj.speed_index,1);
-                obj.speed_msg.Twist.Linear.Y = obj.trajectory_speed(2).signals.values(obj.speed_index,1);
-                obj.speed_msg.Twist.Linear.Z = obj.trajectory_speed(3).signals.values(obj.speed_index,1);
+                obj.speed_msg.Twist.Linear.X= obj.trajectory_speed(1,obj.speed_index);
+                obj.speed_msg.Twist.Linear.Y = obj.trajectory_speed(2,obj.speed_index);
+                obj.speed_msg.Twist.Linear.Z = obj.trajectory_speed(3,obj.speed_index);
                 
                 send(obj.speedPublisher, obj.speed_msg)
                 obj.speed_index = obj.speed_index+1;
@@ -270,6 +269,7 @@ classdef MobileRobotD4PHNE < handle
                 end
                 
             end
+             disp('stop at last waypoint')
         end
         
         function sendWaypoints(obj)
@@ -290,12 +290,12 @@ classdef MobileRobotD4PHNE < handle
         end
         
         function sendTrajectory(obj)
-            obj.trajectory_msg.Data(1:6:length(obj.trajectory_pos(1).signals.values)*6) =  obj.trajectory_pos(1).signals.values;
-            obj.trajectory_msg.Data(2:6:length(obj.trajectory_pos(2).signals.values)*6) =  obj.trajectory_pos(2).signals.values;
-            obj.trajectory_msg.Data(3:6:length(obj.trajectory_pos(3).signals.values)*6) =  obj.trajectory_pos(3).signals.values;
-            obj.trajectory_msg.Data(4:6:length(obj.trajectory_speed(1).signals.values)*6) =  obj.trajectory_speed(1).signals.values;
-            obj.trajectory_msg.Data(5:6:length(obj.trajectory_speed(2).signals.values)*6) =  obj.trajectory_speed(2).signals.values;
-            obj.trajectory_msg.Data(6:6:length(obj.trajectory_speed(3).signals.values)*6) =  obj.trajectory_speed(3).signals.values;
+            obj.trajectory_msg.Data(1:6:length(obj.trajectory_pos(1,:))*6) =  obj.trajectory_pos(1,:);
+            obj.trajectory_msg.Data(2:6:length(obj.trajectory_pos(2,:))*6) =  obj.trajectory_pos(2,:);
+            obj.trajectory_msg.Data(3:6:length(obj.trajectory_pos(3,:))*6) =  obj.trajectory_pos(3,:);
+            obj.trajectory_msg.Data(4:6:length(obj.trajectory_speed(1,:))*6) =  obj.trajectory_speed(1,:);
+            obj.trajectory_msg.Data(5:6:length(obj.trajectory_speed(2,:))*6) =  obj.trajectory_speed(2,:);
+            obj.trajectory_msg.Data(6:6:length(obj.trajectory_speed(3,:))*6) =  obj.trajectory_speed(3,:);
             send(obj.computedTrajectoryPublisher, obj.trajectory_msg);
         end
     end
