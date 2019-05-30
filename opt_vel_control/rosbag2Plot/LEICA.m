@@ -22,21 +22,21 @@ z_traj=A(1,5:6:c);
 plot3(x_traj,y_traj,z_traj,'r')
 hold on 
 
-% wypoints 
-W = readtable('waypoints.txt');
-P = table2array(W);
+% % wypoints 
+% W = readtable('waypoints.txt');
+% P = table2array(W);
 
 
+hold on 
 
+% altre traiettorie replanificate
+%il NAN NON DA PROBLEMA COL PLOT
 
-% % altre traiettorie replanificate
-% %il NAN NON DA PROBLEMA COL PLOT
-% 
-% for  i=1:r
-%     x_traj=A(i,3:6:c);
-%     y_traj=A(i,4:6:c);
-%     z_traj=A(i,5:6:c);
-%    
-%     plot3(x_traj,y_traj,z_traj,'r')
-%     hold on 
-% end
+for  i=2:r
+    x_traj=A(i,3:6:c);
+    y_traj=A(i,4:6:c);
+    z_traj=A(i,5:6:c);
+   
+    plot3(x_traj,y_traj,z_traj,'r')
+    hold on 
+end
