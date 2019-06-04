@@ -25,6 +25,8 @@
 #include <motion_planning/thirdparty/DouglasPeucker.h>
 
 #include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
+#include <pcl/io/obj_io.h>
 #include <pcl/common/common.h>
 #include <pcl/filters/voxel_grid.h>
 
@@ -48,6 +50,7 @@ int main(int _argc, char** _argv){
     float targetX = atof(_argv[6]);
     float targetY = atof(_argv[7]);
     float targetZ = atof(_argv[8]);
+    bool visualizeTree = atoi(_argv[9]);
 
     ros::init(_argc, _argv, "wp_calculation");
     ros::NodeHandle nh;
@@ -64,9 +67,24 @@ int main(int _argc, char** _argv){
     auto t0 = std::chrono::system_clock::now();
     // Load cloud
     pcl::PointCloud<pcl::PointXYZRGB> cloud, filtered;
-    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (mapFilePath, cloud) == -1) {
-        PCL_ERROR ("Couldn't read file test_pcd.pcd \n");
-        return (-1);
+    if(mapFilePath.find(".pcd") != std::string::npos){
+        if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (mapFilePath, cloud) == -1) {
+            PCL_ERROR ("Couldn't read file test_pcd.pcd \n");
+            return (-1);
+        }
+    }else if(mapFilePath.find(".ply") != std::string::npos){
+        if (pcl::io::loadPLYFile<pcl::PointXYZRGB> (mapFilePath, cloud) == -1) {
+            PCL_ERROR ("Couldn't read file test_pcd.pcd \n");
+            return (-1);
+        }
+    }else if(mapFilePath.find(".obj") != std::string::npos){
+        if (pcl::io::loadOBJFile<pcl::PointXYZRGB> (mapFilePath, cloud) == -1) {
+            PCL_ERROR ("Couldn't read file test_pcd.pcd \n");
+            return (-1);
+        }
+    }else {
+        std::cout << "Bad file format " << std::endl;
+        return -1;
     }
 
     // Filter cloud
@@ -125,29 +143,31 @@ int main(int _argc, char** _argv){
     pcl::PointCloud<pcl::PointXYZ>::Ptr nodes;
     planner.tree(nodes, nodesInfo);
 
-    vtkSmartPointer<vtkPolyData> treeBase;
-    viz.drawCustom([&](std::shared_ptr<pcl::visualization::PCLVisualizer> &_viewer){
-        // Create new graph
-        treeBase = vtkSmartPointer<vtkPolyData>::New();
-        treeBase->Allocate();
-        vtkSmartPointer<vtkPoints> covisibilityNodes = vtkSmartPointer<vtkPoints>::New();
+    if(visualizeTree){
+        vtkSmartPointer<vtkPolyData> treeBase;
+        viz.drawCustom([&](std::shared_ptr<pcl::visualization::PCLVisualizer> &_viewer){
+            // Create new graph
+            treeBase = vtkSmartPointer<vtkPolyData>::New();
+            treeBase->Allocate();
+            vtkSmartPointer<vtkPoints> covisibilityNodes = vtkSmartPointer<vtkPoints>::New();
 
-        // Fill-up with nodes
-        for(unsigned i = 0; i <  nodes->size(); i++){
-            covisibilityNodes->InsertNextPoint(     nodes->points[i].x, 
-                                                    nodes->points[i].y, 
-                                                    nodes->points[i].z);
-            if(i > 0){
-                vtkIdType connectivity[2];
-                connectivity[0] = nodesInfo[i].id_;
-                connectivity[1] = nodesInfo[i].parent_;
-                treeBase->InsertNextCell(VTK_LINE,2,connectivity);
+            // Fill-up with nodes
+            for(unsigned i = 0; i <  nodes->size(); i++){
+                covisibilityNodes->InsertNextPoint(     nodes->points[i].x, 
+                                                        nodes->points[i].y, 
+                                                        nodes->points[i].z);
+                if(i > 0){
+                    vtkIdType connectivity[2];
+                    connectivity[0] = nodesInfo[i].id_;
+                    connectivity[1] = nodesInfo[i].parent_;
+                    treeBase->InsertNextCell(VTK_LINE,2,connectivity);
+                }
             }
-        }
 
-        treeBase->SetPoints(covisibilityNodes);
-        _viewer->addModelFromPolyData(treeBase, "treeRRT");
-    });
+            treeBase->SetPoints(covisibilityNodes);
+            _viewer->addModelFromPolyData(treeBase, "treeRRT");
+        });
+    }
 
     // Draw result.
     viz.draw(traj, true, 5);
@@ -172,7 +192,8 @@ int main(int _argc, char** _argv){
 
     // Publish wps:
     int idCounter = 0;
-    for(auto &p: result){
+    for(auto iter = result.rbegin() ; iter != result.rend(); iter++){
+        auto p = *iter;
         geometry_msgs::PoseStamped pose;
         pose.header.frame_id = std::to_string(idCounter++);
         pose.pose.position.x = std::get<0>(p);
@@ -180,7 +201,7 @@ int main(int _argc, char** _argv){
         pose.pose.position.z = std::get<2>(p);
 
         wpPublisher.publish(pose);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     geometry_msgs::PoseStamped pose;
