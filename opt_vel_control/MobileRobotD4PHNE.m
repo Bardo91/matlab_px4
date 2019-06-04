@@ -65,7 +65,7 @@ classdef MobileRobotD4PHNE < handle
             obj.trajectory_msg = rosmessage(obj.computedTrajectoryPublisher);
             obj.waypointsPublisher = rospublisher('/emanuela/waypoints','std_msgs/Float64MultiArray');
             obj.waypoints_msg = rosmessage(obj.waypointsPublisher);
-            obj.waypointSubscriber = rossubscriber('wp_publisher','geometry_msgs/PoseStamped', @obj.callbackReadWps)
+            obj.waypointSubscriber = rossubscriber('/wps','geometry_msgs/PoseStamped', @obj.callbackReadWps)
         end
         
         function takeoffResp = takeoff(obj, altitude)
@@ -81,14 +81,15 @@ classdef MobileRobotD4PHNE < handle
         
         
         function callbackReadWps(obj, ~, msg)
+            if str2num(msg.Header.FrameId) ~= -1  
             obj.waypoints =[obj.waypoints; msg.Pose.Position.X msg.Pose.Position.Y msg.Pose.Position.Z];
-             
+            end  
             %quando è l'ultimo wp porre msg.header.frame_id == -1 come so
             %quando finsce ti inviare? qualcosa col tempo?
             disp(strcat('Recived Waypoint :', num2str([msg.Pose.Position.X msg.Pose.Position.Y msg.Pose.Position.Z])))
             
             if str2num(msg.Header.FrameId) == -1  
-                obj.waypoints = obj.waypoints'
+                obj.waypoints = obj.waypoints' 
                 %calcular velocidad y aceleracion 
                 % obj.waypoints = [msg.Pose.Position, msg.Pose.Position ... ,msg.Pose.Position]
                 [~ , n_wps]= size(obj.waypoints);
