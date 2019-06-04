@@ -6,6 +6,7 @@ classdef MobileRobotD4PHNE < handle
         poseWpSubscriber;
         poseReplanSubscriber;
         speedSubscriber;
+        waypointSubscriber;
         % Publisher
         speedPublisher;
         computedTrajectoryPublisher;
@@ -19,6 +20,8 @@ classdef MobileRobotD4PHNE < handle
         % Parameters
         pose;
         speed;
+        cst_vel=0.2;
+        cst_ac= 0.2;
         
         % waypoints
         waypoints = [];
@@ -31,6 +34,7 @@ classdef MobileRobotD4PHNE < handle
         currentWaypoint=[];
         
         flying = false
+        % wps = false;
         % Debug variables
         wp_n_imo=0;
         replan_index=0;
@@ -61,6 +65,7 @@ classdef MobileRobotD4PHNE < handle
             obj.trajectory_msg = rosmessage(obj.computedTrajectoryPublisher);
             obj.waypointsPublisher = rospublisher('/emanuela/waypoints','std_msgs/Float64MultiArray');
             obj.waypoints_msg = rosmessage(obj.waypointsPublisher);
+            obj.waypointSubscriber = rossubscriber('/wps','geometry_msgs/PoseStamped', @obj.callbackReadWps)
         end
         
         function takeoffResp = takeoff(obj, altitude)
@@ -72,6 +77,58 @@ classdef MobileRobotD4PHNE < handle
             pause(3)
             
             disp('take off end')
+        end
+        
+        
+        function callbackReadWps(obj, ~, msg)
+            if str2num(msg.Header.FrameId) ~= -1  
+            obj.waypoints =[obj.waypoints; msg.Pose.Position.X msg.Pose.Position.Y msg.Pose.Position.Z];
+            end  
+            %quando è l'ultimo wp porre msg.header.frame_id == -1 come so
+            %quando finsce ti inviare? qualcosa col tempo?
+            disp(strcat('Recived Waypoint :', num2str([msg.Pose.Position.X msg.Pose.Position.Y msg.Pose.Position.Z])))
+            
+            if str2num(msg.Header.FrameId) == -1  
+                obj.waypoints = obj.waypoints' 
+                %calcular velocidad y aceleracion 
+                % obj.waypoints = [msg.Pose.Position, msg.Pose.Position ... ,msg.Pose.Position]
+                [~ , n_wps]= size(obj.waypoints);
+                
+                start = [obj.pose.X; obj.pose.Y; obj.pose.Z] 
+                versore_ort = zeros(3,n_wps) %riempire con i versori tangenti
+               
+                %creare vettore di waypoints che contenga anche start per la indicizzazione
+                %s_w sta per start+waypoints
+                
+                s_w = [start obj.waypoints] % size = n_wps+1 nota:pregunta per dim start e obj.waypoints
+                
+                for i= 2 : n_wps %n_wps è il tamano di s_w - ultimo wp
+                    
+                    dir_recta1= ([s_w(1,i), s_w(2,i), s_w(3,i)] - [s_w(1,i-1), s_w(2,i-1), s_w(3,i-1)])
+                    dir_recta2= ([s_w(1,i+1), s_w(2,i+1), s_w(3,i+1)] - [s_w(1,i), s_w(2,i), s_w(3,i)])
+                    
+                    modulo_vett_1= norm(dir_recta1)
+                    modulo_vett_2= norm(dir_recta2)
+                    
+                    %calcola versore recta_1,2
+                    versore_recta1= dir_recta1/modulo_vett_1
+                    versore_recta2= dir_recta1/modulo_vett_2
+                    
+                    %calcola vettore direzione della retta ortogonale alla bisettrice
+                    
+                    vettore_ort= versore_recta2 + versore_recta1
+                    versore_ort(:,i-1)= vettore_ort/ norm(vettore_ort)
+                    
+                    
+                end
+               
+                
+                obj.waypoints_vel= obj.cst_vel*versore_ort %[ vxxxxx; vyyyyy; vzzzz ]
+                obj.waypoints_ac= obj.cst_ac*versore_ort
+                
+                moveToWaypoint(obj)
+            end
+            
         end
         
         function landResp = land(obj)
@@ -147,7 +204,7 @@ classdef MobileRobotD4PHNE < handle
         
         function computeTrajectory(obj)
             num_axes         = 3;
-            [~ , obj.nwps ]=size(obj.waypoints);
+            [~ , obj.nwps ]=size(obj.waypoints);  %calcola questo nella nuova callback che legge i waypoints
             num_trajectories = obj.nwps; %number of waypoint
             
             State_start      = [obj.pose.X obj.speed.X 0;
@@ -159,8 +216,8 @@ classdef MobileRobotD4PHNE < handle
             for i=1:obj.nwps
                 
                 Waypoints(:,:,i) = [    obj.waypoints(1,i)  obj.waypoints_vel(1,i)  obj.waypoints_ac(1,i)  0.0  0.0; ...
-                    obj.waypoints(2,i)  obj.waypoints_vel(2,i)  obj.waypoints_ac(1,i)  0.0  0.0; ...
-                    obj.waypoints(3,i)  obj.waypoints_vel(3,i)  obj.waypoints_ac(1,i)  0.0  0.0];
+                                        obj.waypoints(2,i)  obj.waypoints_vel(2,i)  obj.waypoints_ac(2,i)  0.0  0.0; ...
+                                        obj.waypoints(3,i)  obj.waypoints_vel(3,i)  obj.waypoints_ac(3,i)  0.0  0.0];
             end
             
             V_max            =  1.0*ones(num_axes,num_trajectories); %1.0
@@ -222,54 +279,53 @@ classdef MobileRobotD4PHNE < handle
         end
         
         
-        function moveToWaypoint(obj, waypoints,waypoints_vel,waypoints_ac)
-  
-            obj.waypoints = waypoints;
-            obj.waypoints_vel = waypoints_vel;
-            obj.waypoints_ac = waypoints_ac;
-            obj.currentWaypoint = waypoints(:,1);
-            
-            if(obj.plotting)
-                for i = 1:size(obj.waypoints(1,:),2)
-                    plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
+        function moveToWaypoint(obj) 
+                
+                obj.currentWaypoint = obj.waypoints(:,1);
+                
+                if(obj.plotting)
+                    for i = 1:size(obj.waypoints(1,:),2)
+                        plot3(obj.waypoints(1,i), obj.waypoints(2,i), obj.waypoints(3,i), 'o')
+                        hold on
+                    end
+                end
+                % publish all waypoints
+                sendWaypoints(obj);
+                
+                %           COMPUTE TRAJECTORY
+                computeTrajectory(obj);
+                obj.flying = true;
+                
+                % publish first computed trajectory <--------
+                sendTrajectory(obj);
+                
+                %           PLOT OF THE FIRST TRAJECTORY => VERIFICA FUNZIONAMENTO
+                if(obj.plotting)
+                    plot3(obj.trajectory_pos(1,:),...
+                        obj.trajectory_pos(2,:),...
+                        obj.trajectory_pos(3,:));
                     hold on
                 end
-            end
-            % publish all waypoints
-            sendWaypoints(obj);
-            
-            %           COMPUTE TRAJECTORY
-            computeTrajectory(obj);
-            obj.flying = true;
-            
-            % publish first computed trajectory <--------
-            sendTrajectory(obj);
-            
-            %           PLOT OF THE FIRST TRAJECTORY => VERIFICA FUNZIONAMENTO
-            if(obj.plotting)
-                      plot3(obj.trajectory_pos(1,:),...
-                             obj.trajectory_pos(2,:),...
-                             obj.trajectory_pos(3,:));
-                       hold on
-            end
-            
-            while obj.speed_index < obj.N_traj && obj.nwps>0
-                tic
-                obj.speed_msg.Twist.Linear.X= obj.trajectory_speed(1,obj.speed_index);
-                obj.speed_msg.Twist.Linear.Y = obj.trajectory_speed(2,obj.speed_index);
-                obj.speed_msg.Twist.Linear.Z = obj.trajectory_speed(3,obj.speed_index);
                 
-                send(obj.speedPublisher, obj.speed_msg)
-                obj.speed_index = obj.speed_index+1;
-                %                disp('speed message')
-                inct=toc;
-                if(inct<obj.ts_rolloutMagic)
-                    %java.lang.Thread.sleep((obj.magic-inct)/1000)
-                    pause(obj.magic-inct) %pause(0.020 - inct) %0.009 con Ts_roll=0.03
+                while obj.speed_index < obj.N_traj && obj.nwps>0
+                    tic
+                    obj.speed_msg.Twist.Linear.X= obj.trajectory_speed(1,obj.speed_index);
+                    obj.speed_msg.Twist.Linear.Y = obj.trajectory_speed(2,obj.speed_index);
+                    obj.speed_msg.Twist.Linear.Z = obj.trajectory_speed(3,obj.speed_index);
+                    
+                    send(obj.speedPublisher, obj.speed_msg)
+                    obj.speed_index = obj.speed_index+1;
+                    %                disp('speed message')
+                    inct=toc;
+                    if(inct<obj.ts_rolloutMagic)
+                        %java.lang.Thread.sleep((obj.magic-inct)/1000)
+                        pause(obj.magic-inct) %pause(0.020 - inct) %0.009 con Ts_roll=0.03
+                    end
+                    
                 end
                 
-            end
-             disp('stop at last waypoint')
+                disp('stop at last waypoint')
+            
         end
         
         function sendWaypoints(obj)
