@@ -51,6 +51,9 @@ int main(int _argc, char** _argv){
     float targetY = atof(_argv[7]);
     float targetZ = atof(_argv[8]);
     bool visualizeTree = atoi(_argv[9]);
+    int pointSize = 1;
+    if(_argc > 10)
+        pointSize = atoi(_argv[10]);
 
     ros::init(_argc, _argv, "wp_calculation");
     ros::NodeHandle nh;
@@ -95,7 +98,9 @@ int main(int _argc, char** _argv){
 
     // Draw cloud
     mp::Visualizer viz;
-    viz.draw<pcl::PointXYZRGB>(filtered);  
+    auto rawViewer = viz.rawViewer();
+    viz.draw<pcl::PointXYZRGB>(filtered); 
+    rawViewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize, "cloud_0"); 
     pcl::PointXYZRGB minPt, maxPt;
     pcl::getMinMax3D (filtered, minPt, maxPt);
     auto t1 = std::chrono::system_clock::now();
