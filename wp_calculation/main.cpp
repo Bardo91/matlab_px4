@@ -93,7 +93,7 @@ int main(int _argc, char** _argv){
     // Filter cloud
     pcl::VoxelGrid<pcl::PointXYZRGB> sor;
     sor.setInputCloud (cloud.makeShared());
-    sor.setLeafSize (0.2f, 0.2f, 0.2f);
+    sor.setLeafSize (0.01f,0.01f,0.01f);
     sor.filter(filtered);
 
     // Draw cloud
@@ -101,6 +101,7 @@ int main(int _argc, char** _argv){
     auto rawViewer = viz.rawViewer();
     viz.draw<pcl::PointXYZRGB>(filtered); 
     rawViewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize, "cloud_0"); 
+    //rawViewer->setBackgroundColor(0.9,0.9,0.9); 
     pcl::PointXYZRGB minPt, maxPt;
     pcl::getMinMax3D (filtered, minPt, maxPt);
     auto t1 = std::chrono::system_clock::now();
